@@ -15,8 +15,18 @@ team@genspark.ai에서 보내는 Meeting Notes 이메일을 자동으로 감지�
 ### 1. Python 설치
 
 Python 3.10 이상이 필요합니다.
-- [python.org](https://www.python.org/downloads/)에서 다운로드
-- 설치 시 "Add Python to PATH" 체크
+1. [python.org](https://www.python.org/downloads/)에서 최신 Python 다운로드
+2. 설치 시 **반드시 "Add python.exe to PATH" 체크** (가장 중요!)
+3. 설치 완료 후 PowerShell을 **새로 열고** 확인:
+   ```powershell
+   python --version    # Python 3.x.x 출력되면 성공
+   ```
+4. 만약 `python`이 안 되면 `py --version` 시도
+
+> **이미 Python이 설치되어 있지만 `pip`이 안 되는 경우:**
+> ```powershell
+> py -m pip install -r requirements.txt    # py 런처 사용
+> ```
 
 ### 2. Google Cloud Console 설정
 
@@ -40,12 +50,15 @@ Python 3.10 이상이 필요합니다.
 git clone https://github.com/jlaw080-ops/teamnoteAutomation.git
 cd teamnoteAutomation
 
-# 2. (권장) 가상환경 생성
+# 2. (권장) 가상환경 생성 및 활성화
 python -m venv venv
-venv\Scripts\activate   # Windows
+.\venv\Scripts\Activate.ps1   # PowerShell
+# 만약 "실행 정책" 오류가 나면 아래 명령 먼저 실행:
+# Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 
 # 3. 의존성 설치
 pip install -r requirements.txt
+# pip이 안 되면: python -m pip install -r requirements.txt
 
 # 4. 설정 파일 생성
 copy config.example.yaml config.yaml
