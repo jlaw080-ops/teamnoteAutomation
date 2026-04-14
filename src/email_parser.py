@@ -54,13 +54,13 @@ def _extract_title_from_subject(subject: str) -> str:
 def _extract_metadata(body: str) -> dict:
     metadata = {}
 
-    # Extract date: look for "Date\nYYYY-MM-DD" pattern
-    date_match = re.search(r"Date\n(\d{4}-\d{2}-\d{2})", body)
+    # Extract date: "Date\nYYYY-MM-DD" or "Date YYYY-MM-DD" (tab-separated from HTML)
+    date_match = re.search(r"Date[\n\t\s]+(\d{4}-\d{2}-\d{2})", body)
     if date_match:
         metadata["date"] = date_match.group(1)
 
-    # Extract duration: look for "Duration\nNN mins" pattern
-    duration_match = re.search(r"Duration\n(\d+\s*mins?)", body)
+    # Extract duration: "Duration\nNN mins" or "Duration NN mins"
+    duration_match = re.search(r"Duration[\n\t\s]+(\d+\s*mins?)", body)
     if duration_match:
         metadata["duration"] = duration_match.group(1)
 
@@ -69,8 +69,8 @@ def _extract_metadata(body: str) -> dict:
 
 def _extract_content_body(body: str) -> str:
     """Strip header preamble and footer, returning only the main content."""
-    # Find the end of the metadata block (after "Duration\nNN mins")
-    duration_match = re.search(r"Duration\n\d+\s*mins?", body)
+    # Find the end of the metadata block (after "Duration NN mins")
+    duration_match = re.search(r"Duration[\n\t\s]+\d+\s*mins?", body)
     if duration_match:
         content_start = duration_match.end()
     else:

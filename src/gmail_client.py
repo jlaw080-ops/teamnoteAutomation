@@ -1,5 +1,7 @@
 import base64
 import logging
+import re
+from html.parser import HTMLParser
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -107,30 +109,60 @@ class GmailClient:
 
     def _extract_body(self, payload: dict) -> str:
         # Try to get plain text body first
-        if payload.get("mimeType") == "text/plain" and payload.get("body", {}).get("data"):
-            return self._decode_body(payload["body"]["data"])
+        plain = self._find_part(payload, "text/plain")
+        if plain:
+            return plain
 
-        # Check parts for multipart messages
-        for part in payload.get("parts", []):
-            if part.get("mimeType") == "text/plain" and part.get("body", {}).get("data"):
-                return self._decode_body(part["body"]["data"])
-
-        # Fallback: try HTML body and strip tags
-        if payload.get("mimeType") == "text/html" and payload.get("body", {}).get("data"):
-            return self._decode_body(payload["body"]["data"])
-
-        for part in payload.get("parts", []):
-            if part.get("mimeType") == "text/html" and part.get("body", {}).get("data"):
-                return self._decode_body(part["body"]["data"])
-
-        # Deep nested parts (multipart/alternative inside multipart/mixed)
-        for part in payload.get("parts", []):
-            body = self._extract_body(part)
-            if body:
-                return body
+        # Fallback: get HTML body and convert to plain text
+        html = self._find_part(payload, "text/html")
+        if html:
+            return self._html_to_text(html)
 
         return ""
+
+    def _find_part(self, payload: dict, mime_type: str) -> str | None:
+        """Recursively search for a part with the given MIME type."""
+        if payload.get("mimeType") == mime_type:
+            data = payload.get("body", {}).get("data")
+            if data:
+                return self._decode_body(data)
+
+        for part in payload.get("parts", []):
+            result = self._find_part(part, mime_type)
+            if result:
+                return result
+
+        return None
 
     @staticmethod
     def _decode_body(data: str) -> str:
         return base64.urlsafe_b64decode(data).decode("utf-8", errors="replace")
+
+    @staticmethod
+    def _html_to_text(html: str) -> str:
+        """Convert HTML to plain text, preserving line breaks."""
+        # Replace block-level tags with newlines
+        text = re.sub(r"<br\s*/?>", "\n", html, flags=re.IGNORECASE)
+        text = re.sub(r"</(?:p|div|tr|li|h[1-6]|blockquote)>", "\n", text, flags=re.IGNORECASE)
+        text = re.sub(r"</(?:td|th)>", "\t", text, flags=re.IGNORECASE)
+
+        # Remove all remaining HTML tags
+        text = re.sub(r"<[^>]+>", "", text)
+
+        # Decode common HTML entities
+        text = text.replace("&amp;", "&")
+        text = text.replace("&lt;", "<")
+        text = text.replace("&gt;", ">")
+        text = text.replace("&nbsp;", " ")
+        text = text.replace("&quot;", '"')
+        text = text.replace("&#39;", "'")
+
+        # Clean up whitespace: collapse multiple spaces on same line
+        text = re.sub(r"[ \t]+", " ", text)
+        # Collapse 3+ consecutive newlines into 2
+        text = re.sub(r"\n{3,}", "\n\n", text)
+        # Strip leading/trailing whitespace per line
+        lines = [line.strip() for line in text.split("\n")]
+        text = "\n".join(lines)
+
+        return text.strip()
