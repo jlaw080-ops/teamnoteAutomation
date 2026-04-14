@@ -1,0 +1,39 @@
+# Credentials & tokens
+credentials/credentials.json
+credentials/token.json
+credentials/*.json
+!credentials/.gitkeep
+
+# State
+state.json
+
+# Logs
+logs/*.log
+!logs/.gitkeep
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.eggs/
+venv/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Config with secrets
+config.yaml
+
+# Lock file
+running.lock

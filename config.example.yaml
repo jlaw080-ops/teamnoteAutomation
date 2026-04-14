@@ -1,0 +1,24 @@
+# Gmail-to-Obsidian Meeting Notes Automation Configuration
+
+gmail:
+  credentials_path: "credentials/credentials.json"
+  token_path: "credentials/token.json"
+  sender_filter: "team@genspark.ai"
+  subject_prefix: "Meeting Notes:"
+
+obsidian:
+  vault_path: 'D:\ENERGINNO Dropbox\KIM JEEHEON\앱\remotely-save\Vault_jlaw80'
+  template_path: 'D:\ENERGINNO Dropbox\KIM JEEHEON\앱\remotely-save\Vault_jlaw80\Meta\Base note template.md'
+  note_filename_format: "{date} {title}.md"
+
+polling:
+  lookback_hours: 24
+  max_results: 10
+
+state:
+  state_file: "state.json"
+  max_tracked_ids: 500
+
+logging:
+  level: "INFO"
+  log_file: "logs/automation.log"
