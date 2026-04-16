@@ -33,7 +33,13 @@ def parse_email(subject: str, body: str) -> dict:
     title = _extract_title_from_subject(subject)
     metadata = _extract_metadata(body)
     content_body = _extract_content_body(body)
-    sections = _split_into_sections(content_body)
+
+    # If the body already has Markdown formatting (headings, lists),
+    # skip section splitting and preserve the original structure.
+    if _has_markdown_formatting(content_body):
+        sections = OrderedDict()
+    else:
+        sections = _split_into_sections(content_body)
 
     return {
         "title": title,
@@ -42,6 +48,17 @@ def parse_email(subject: str, body: str) -> dict:
         "sections": sections,
         "raw_body": content_body,
     }
+
+
+def _has_markdown_formatting(content: str) -> bool:
+    """Check if content already has Markdown formatting to preserve."""
+    # Detect presence of markdown headings, lists, or bold
+    return bool(
+        re.search(r"^#{1,6}\s", content, re.MULTILINE)
+        or re.search(r"^\s*[-*+]\s", content, re.MULTILINE)
+        or re.search(r"^\s*\d+\.\s", content, re.MULTILINE)
+        or "**" in content
+    )
 
 
 def _extract_title_from_subject(subject: str) -> str:
@@ -54,13 +71,13 @@ def _extract_title_from_subject(subject: str) -> str:
 def _extract_metadata(body: str) -> dict:
     metadata = {}
 
-    # Extract date: "Date\nYYYY-MM-DD" or "Date YYYY-MM-DD" (tab-separated from HTML)
-    date_match = re.search(r"Date[\n\t\s]+(\d{4}-\d{2}-\d{2})", body)
+    # Extract date: supports "Date\nYYYY-MM-DD", "Date: YYYY-MM-DD", "Date| YYYY-MM-DD"
+    date_match = re.search(r"\*?\*?Date\*?\*?[\n\t\s:|]+(\d{4}-\d{2}-\d{2})", body)
     if date_match:
         metadata["date"] = date_match.group(1)
 
-    # Extract duration: "Duration\nNN mins" or "Duration NN mins"
-    duration_match = re.search(r"Duration[\n\t\s]+(\d+\s*mins?)", body)
+    # Extract duration: supports various separators
+    duration_match = re.search(r"\*?\*?Duration\*?\*?[\n\t\s:|]+(\d+\s*mins?)", body)
     if duration_match:
         metadata["duration"] = duration_match.group(1)
 
@@ -69,28 +86,43 @@ def _extract_metadata(body: str) -> dict:
 
 def _extract_content_body(body: str) -> str:
     """Strip header preamble and footer, returning only the main content."""
-    # Find the end of the metadata block (after "Duration NN mins")
-    duration_match = re.search(r"Duration[\n\t\s]+\d+\s*mins?", body)
+    # Find the end of the metadata block
+    duration_match = re.search(r"\*?\*?Duration\*?\*?[\n\t\s:|]+\d+\s*mins?", body)
     if duration_match:
         content_start = duration_match.end()
     else:
-        # Fallback: try to find first section heading
+        # Fallback: find first section heading (account for leading ## prefix)
         heading_pattern = "|".join(re.escape(h) for h in SECTION_HEADINGS)
-        heading_match = re.search(heading_pattern, body)
+        heading_match = re.search(r"(#{1,6}\s+)?(" + heading_pattern + r")", body)
         if heading_match:
             content_start = heading_match.start()
         else:
             content_start = 0
 
     # Strip footer (www.genspark.ai and trailing whitespace)
-    footer_match = re.search(r"\n*www\.genspark\.ai", body)
+    footer_match = re.search(r"\n*(?:www\.)?genspark\.ai", body)
     if footer_match:
         content_end = footer_match.start()
     else:
         content_end = len(body)
 
     content = body[content_start:content_end].strip()
-    return content
+
+    # Remove leftover preamble patterns (AI Meeting Notes, Generated, etc.)
+    # that may appear at the top after conversion
+    lines = content.split("\n")
+    cleaned = []
+    skip_patterns = [
+        r"^\s*(?:Genspark\s+)?AI Meeting Notes\s*$",
+        r"^\s*Generated\s*$",
+        r"^\s*\d{4}-\d{2}-\d{2}\s*$",
+    ]
+    for line in lines:
+        if any(re.match(p, line) for p in skip_patterns):
+            continue
+        cleaned.append(line)
+
+    return "\n".join(cleaned).strip()
 
 
 def _split_into_sections(content: str) -> OrderedDict:

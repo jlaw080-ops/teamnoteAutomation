@@ -91,20 +91,24 @@ def _render_body(parsed_data: dict) -> str:
         lines.append(" | ".join(info_parts))
         lines.append("")
 
-    # Render sections
+    # Prefer raw body if it already has Markdown formatting
+    raw_body = parsed_data.get("raw_body", "")
     sections: OrderedDict = parsed_data.get("sections", OrderedDict())
-    if sections:
+
+    if raw_body and not sections:
+        # Body is already well-formatted Markdown - use as-is
+        lines.append(raw_body)
+        lines.append("")
+    elif sections:
+        # Fall back to structured section rendering (for plain-text emails)
         for heading, content in sections.items():
             lines.append(f"## {heading}")
             lines.append("")
             lines.append(content)
             lines.append("")
-    else:
-        # Fallback: use raw body
-        raw_body = parsed_data.get("raw_body", "")
-        if raw_body:
-            lines.append(raw_body)
-            lines.append("")
+    elif raw_body:
+        lines.append(raw_body)
+        lines.append("")
 
     return "\n".join(lines)
 
@@ -120,7 +124,7 @@ def generate_filename(parsed_data: dict, filename_format: str) -> str:
         Sanitized filename string.
     """
     title = parsed_data.get("title", "Untitled Meeting")
-    date = parsed_data.get("date", datetime.now().strftime("%Y-%m-%d"))
+    date = parsed_data.get("date") or datetime.now().strftime("%Y-%m-%d")
     duration = parsed_data.get("duration", "")
 
     filename = filename_format.format(
@@ -131,6 +135,9 @@ def generate_filename(parsed_data: dict, filename_format: str) -> str:
 
     # Remove illegal Windows filename characters
     filename = ILLEGAL_FILENAME_CHARS.sub("", filename)
+
+    # Collapse multiple spaces and strip leading/trailing whitespace
+    filename = re.sub(r"\s+", " ", filename).strip()
 
     # Truncate if too long (preserve .md extension)
     if len(filename) > MAX_FILENAME_LENGTH:

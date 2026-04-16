@@ -1,10 +1,10 @@
 import base64
 import logging
 import re
-from html.parser import HTMLParser
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+import html2text
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -140,29 +140,20 @@ class GmailClient:
 
     @staticmethod
     def _html_to_text(html: str) -> str:
-        """Convert HTML to plain text, preserving line breaks."""
-        # Replace block-level tags with newlines
-        text = re.sub(r"<br\s*/?>", "\n", html, flags=re.IGNORECASE)
-        text = re.sub(r"</(?:p|div|tr|li|h[1-6]|blockquote)>", "\n", text, flags=re.IGNORECASE)
-        text = re.sub(r"</(?:td|th)>", "\t", text, flags=re.IGNORECASE)
+        """Convert HTML to Markdown, preserving formatting (lists, bold, headings)."""
+        h = html2text.HTML2Text()
+        h.body_width = 0              # Disable line wrapping
+        h.ignore_links = False        # Keep links as [text](url)
+        h.ignore_images = True        # Drop images
+        h.ignore_emphasis = False     # Keep **bold** and *italic*
+        h.ignore_tables = False       # Convert tables to markdown
+        h.single_line_break = True    # Preserve single line breaks
+        h.skip_internal_links = True
+        h.bypass_tables = False
+        h.unicode_snob = True         # Preserve Unicode characters (Korean)
 
-        # Remove all remaining HTML tags
-        text = re.sub(r"<[^>]+>", "", text)
+        markdown = h.handle(html)
 
-        # Decode common HTML entities
-        text = text.replace("&amp;", "&")
-        text = text.replace("&lt;", "<")
-        text = text.replace("&gt;", ">")
-        text = text.replace("&nbsp;", " ")
-        text = text.replace("&quot;", '"')
-        text = text.replace("&#39;", "'")
-
-        # Clean up whitespace: collapse multiple spaces on same line
-        text = re.sub(r"[ \t]+", " ", text)
         # Collapse 3+ consecutive newlines into 2
-        text = re.sub(r"\n{3,}", "\n\n", text)
-        # Strip leading/trailing whitespace per line
-        lines = [line.strip() for line in text.split("\n")]
-        text = "\n".join(lines)
-
-        return text.strip()
+        markdown = re.sub(r"\n{3,}", "\n\n", markdown)
+        return markdown.strip()
