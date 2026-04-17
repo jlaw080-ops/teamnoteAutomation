@@ -108,15 +108,15 @@ class GmailClient:
         }
 
     def _extract_body(self, payload: dict) -> str:
-        # Try to get plain text body first
-        plain = self._find_part(payload, "text/plain")
-        if plain:
-            return plain
-
-        # Fallback: get HTML body and convert to plain text
+        # Prefer HTML body — it preserves formatting (headings, lists, bold)
         html = self._find_part(payload, "text/html")
         if html:
             return self._html_to_text(html)
+
+        # Fallback to plain text only if no HTML part exists
+        plain = self._find_part(payload, "text/plain")
+        if plain:
+            return plain
 
         return ""
 
@@ -139,20 +139,22 @@ class GmailClient:
         return base64.urlsafe_b64decode(data).decode("utf-8", errors="replace")
 
     @staticmethod
-    def _html_to_text(html: str) -> str:
+    def _html_to_text(html_content: str) -> str:
         """Convert HTML to Markdown, preserving formatting (lists, bold, headings)."""
         h = html2text.HTML2Text()
-        h.body_width = 0              # Disable line wrapping
-        h.ignore_links = False        # Keep links as [text](url)
-        h.ignore_images = True        # Drop images
-        h.ignore_emphasis = False     # Keep **bold** and *italic*
-        h.ignore_tables = False       # Convert tables to markdown
-        h.single_line_break = True    # Preserve single line breaks
-        h.skip_internal_links = True
-        h.bypass_tables = False
-        h.unicode_snob = True         # Preserve Unicode characters (Korean)
+        h.body_width = 0
+        h.ignore_links = True
+        h.ignore_images = True
+        h.ignore_emphasis = False
+        h.ignore_tables = False
+        h.protect_links = True
+        h.unicode_snob = True
+        h.mark_code = False
+        h.wrap_links = False
+        h.wrap_list_items = False
+        h.pad_tables = True
 
-        markdown = h.handle(html)
+        markdown = h.handle(html_content)
 
         # Collapse 3+ consecutive newlines into 2
         markdown = re.sub(r"\n{3,}", "\n\n", markdown)
