@@ -21,6 +21,7 @@ from src.email_parser import parse_email
 from src.gmail_client import GmailClient
 from src.note_builder import build_note, generate_filename, save_note
 from src.state_manager import StateManager
+from src.summarizer import summarize_meeting_notes
 
 LOCK_FILE = "running.lock"
 LOCK_TIMEOUT_SECONDS = 300  # 5 minutes
@@ -98,6 +99,7 @@ def _run(config: dict, dry_run: bool, logger: logging.Logger):
     obsidian_config = config["obsidian"]
     polling_config = config["polling"]
     state_config = config["state"]
+    summarization_config = config.get("summarization", {})
 
     # Initialize state manager
     state = StateManager(
@@ -143,10 +145,24 @@ def _run(config: dict, dry_run: bool, logger: logging.Logger):
             # Parse email content
             parsed = parse_email(subject, body)
 
+            # Summarize meeting notes via Claude API
+            if summarization_config.get("enabled") and summarization_config.get("api_key"):
+                logger.info("Summarizing: %s", parsed["title"])
+                summarized_body = summarize_meeting_notes(
+                    body=parsed["raw_body"],
+                    title=parsed["title"],
+                    date=parsed["date"],
+                    duration=parsed["duration"],
+                    api_key=summarization_config["api_key"],
+                    model=summarization_config.get("model", "claude-sonnet-4-20250514"),
+                )
+                parsed["raw_body"] = summarized_body
+                parsed["sections"] = {}  # Use summarized raw_body directly
+
             if dry_run:
                 logger.info("[DRY RUN] Would create note: %s", parsed["title"])
                 logger.info("[DRY RUN] Date: %s, Duration: %s", parsed["date"], parsed["duration"])
-                logger.info("[DRY RUN] Sections: %s", list(parsed["sections"].keys()))
+                logger.info("[DRY RUN] Preview:\n%s", parsed["raw_body"][:500])
                 state.mark_processed(message_id)
                 created_count += 1
                 continue

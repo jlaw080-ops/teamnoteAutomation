@@ -18,6 +18,11 @@ DEFAULT_CONFIG = {
         "template_path": "",
         "note_filename_format": "{date} {title}.md",
     },
+    "summarization": {
+        "enabled": True,
+        "api_key": "",
+        "model": "claude-sonnet-4-20250514",
+    },
     "polling": {
         "lookback_hours": 24,
         "max_results": 10,

@@ -11,6 +11,11 @@ obsidian:
   template_path: 'D:\ENERGINNO Dropbox\KIM JEEHEON\앱\remotely-save\Vault_jlaw80\Meta\Base note template.md'
   note_filename_format: "{date} {title}.md"
 
+summarization:
+  enabled: true
+  api_key: "your-anthropic-api-key-here"
+  model: "claude-sonnet-4-20250514"
+
 polling:
   lookback_hours: 24
   max_results: 10
